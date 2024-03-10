@@ -8,6 +8,7 @@
 import SwiftUI
 import CoreData
 
+
 struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
 
@@ -16,29 +17,50 @@ struct ContentView: View {
         animation: .default)
     private var items: FetchedResults<Item>
 
+    @State private var text: String = ""
+
     var body: some View {
         NavigationView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp!, formatter: itemFormatter)")
-                    } label: {
-                        Text(item.timestamp!, formatter: itemFormatter)
+            VStack {
+                Spacer() // Push the scrolling bar to the middle of the screen
+                ScrollView(.horizontal, showsIndicators: false) { // Hide scroll indicators
+                    HStack(spacing: 16) { // Adjust the spacing as needed
+                        ForEach(items) { item in
+                            VStack {
+                                NavigationLink(destination: EditNoteView(item: item)) {
+                                    Image("craneImage") // Assuming "craneImage" is the name of your image asset
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 200, height: 200) // Adjust the width and height as needed
+                                        .padding()
+                                        .background(Color.clear) // Set background color to clear
+                                        .cornerRadius(10)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 10)
+                                                .stroke(Color.blue, lineWidth: 2) // Add a border
+                                        )
+                                }
+                            }
+                            .id(item) // Ensure each item has a unique identifier
+                        }
                     }
                 }
-                .onDelete(perform: deleteItems)
-            }
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
+                .frame(height: 100) // Adjust the height as needed
+                .padding()
+                .onAppear {
+                    // Ensure the list scrolls to the end when it appears
+                    withAnimation {
+                        scrollToBottom()
                     }
                 }
+                Spacer() // Add a spacer to push the button to the bottom of the screen
+                
+                Button(action: addItem) {
+                    Label("Add Item", systemImage: "plus")
+                }
+                .padding()
             }
-            Text("Select an item")
+            .navigationBarTitle("Items")
         }
     }
 
@@ -50,8 +72,6 @@ struct ContentView: View {
             do {
                 try viewContext.save()
             } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
                 let nsError = error as NSError
                 fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
             }
@@ -65,11 +85,52 @@ struct ContentView: View {
             do {
                 try viewContext.save()
             } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
                 let nsError = error as NSError
                 fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
             }
+        }
+    }
+
+    private func scrollToBottom() {
+        guard let lastItem = items.last else { return }
+        DispatchQueue.main.async {
+            withAnimation {
+                // Scroll to the last item
+            }
+        }
+    }
+}
+
+struct EditNoteView: View {
+    @ObservedObject var item: Item
+    @State private var editedNote: String
+
+    init(item: Item) {
+        self.item = item
+        self._editedNote = State(initialValue: item.note ?? "")
+    }
+
+    var body: some View {
+        VStack {
+            TextEditor(text: $editedNote)
+                .frame(width: 200, height: 200) // Set the width and height as needed
+                .padding()
+                .background(Color(.systemGray6))
+                .cornerRadius(10)
+            Button("Save") {
+                saveNote()
+            }
+            .padding()
+        }
+        .navigationBarTitle("Edit Note")
+    }
+
+    private func saveNote() {
+        item.note = editedNote
+        do {
+            try item.managedObjectContext?.save()
+        } catch {
+            print("Error saving note: \(error)")
         }
     }
 }
