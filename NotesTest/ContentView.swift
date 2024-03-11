@@ -7,8 +7,6 @@
 
 import SwiftUI
 import CoreData
-
-
 struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
 
@@ -17,7 +15,8 @@ struct ContentView: View {
         animation: .default)
     private var items: FetchedResults<Item>
 
-    @State private var text: String = ""
+    @State private var isEditingNote = false
+    @State private var selectedItem: Item?
 
     var body: some View {
         NavigationView {
@@ -27,7 +26,10 @@ struct ContentView: View {
                     HStack(spacing: 16) { // Adjust the spacing as needed
                         ForEach(items) { item in
                             VStack {
-                                NavigationLink(destination: EditNoteView(item: item)) {
+                                Button(action: {
+                                    selectedItem = item
+                                    isEditingNote = true
+                                }) {
                                     Image("craneImage") // Assuming "craneImage" is the name of your image asset
                                         .resizable()
                                         .scaledToFit()
@@ -61,6 +63,15 @@ struct ContentView: View {
                 .padding()
             }
             .navigationBarTitle("Items")
+            .sheet(isPresented: $isEditingNote, onDismiss: {
+                // Reset selected item when EditNoteView is dismissed
+                selectedItem = nil
+            }) {
+                if let selectedItem = selectedItem {
+                    EditNoteView(item: selectedItem, isPresented: $isEditingNote)
+                        .environment(\.managedObjectContext, viewContext)
+                }
+            }
         }
     }
 
@@ -68,6 +79,8 @@ struct ContentView: View {
         withAnimation {
             let newItem = Item(context: viewContext)
             newItem.timestamp = Date()
+            selectedItem = newItem
+            isEditingNote = true
 
             do {
                 try viewContext.save()
@@ -77,6 +90,7 @@ struct ContentView: View {
             }
         }
     }
+
 
     private func deleteItems(offsets: IndexSet) {
         withAnimation {
@@ -103,10 +117,12 @@ struct ContentView: View {
 
 struct EditNoteView: View {
     @ObservedObject var item: Item
+    @Binding var isPresented: Bool
     @State private var editedNote: String
 
-    init(item: Item) {
+    init(item: Item, isPresented: Binding<Bool>) {
         self.item = item
+        self._isPresented = isPresented
         self._editedNote = State(initialValue: item.note ?? "")
     }
 
@@ -119,6 +135,7 @@ struct EditNoteView: View {
                 .cornerRadius(10)
             Button("Save") {
                 saveNote()
+                isPresented = false // Dismiss EditNoteView
             }
             .padding()
         }
